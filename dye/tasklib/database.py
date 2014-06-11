@@ -284,13 +284,21 @@ class MySQLManager(DBManager):
     def drop_db(self):
         self.exec_as_root('DROP DATABASE IF EXISTS %s' % self.name)
 
-    def dump_db(self, dump_filename='db_dump.sql', for_rsync=False):
+    def dump_db(self, dump_filename='db_dump.sql', for_rsync=False,
+                ignored_tables=None):
         """Dump the database in the current working directory"""
+
         dump_cmd = ['mysqldump'] + self.create_cmdline_args()
         # this option will mean that there will be one line per insert
         # thus making the dump file better for rsync, but slightly bigger
         if for_rsync:
             dump_cmd.append('--skip-extended-insert')
+
+        if ignored_tables is None:
+            ignored_tables = []
+
+        for table in ignored_tables:
+            dump_cmd.append('--ignore-table={0}'.format(table))
 
         with open(dump_filename, 'w') as dump_file:
             if env['verbose']:

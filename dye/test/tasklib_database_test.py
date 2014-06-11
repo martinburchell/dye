@@ -150,10 +150,13 @@ class MysqlMixin(object):
         self.drop_database()
         self.db.exec_as_root("CREATE DATABASE %s CHARACTER SET utf8" % self.TEST_DB)
 
-    def create_table(self):
+    def create_named_table(self, table):
         self.get_mysql_root_password()
         self.db.exec_as_root("CREATE TABLE %s.%s(mycolumn CHAR(30))" %
-                             (self.TEST_DB, self.TEST_TABLE))
+                             (self.TEST_DB, table))
+
+    def create_table(self):
+        self.create_named_table(self.TEST_TABLE)
 
     def grant_privileges(self):
         self.get_mysql_root_password()
@@ -402,6 +405,27 @@ class TestDatabaseCreateFunctions(MysqlMixin, unittest.TestCase):
             # to allow for non-data bits
             subprocess.check_call(['diff', '--ignore-matching-lines', '^--',
                                    self.TEST_RESTORE_FILE, self.TEST_DUMP_FILE])
+        finally:
+            self.drop_database_user()
+            self.drop_database()
+            os.remove(self.TEST_DUMP_FILE)
+
+    def test_dump_db_excludes_table(self):
+        try:
+            self.db.ensure_user_and_db_exist()
+            self.db.restore_db(self.TEST_RESTORE_FILE)
+            self.create_named_table('excluded_table_1')
+            self.create_named_table('excluded_table_2')
+            self.db.dump_db(self.TEST_DUMP_FILE, ignored_tables=(
+                '{0}.excluded_table_1'.format(self.TEST_DB),
+                '{0}.excluded_table_2'.format(self.TEST_DB),
+            ))
+            # do a diff but ignore comments that may contain date stamps
+            # may also need to add '--ignore-matching-lines', '^/\*',
+            # to allow for non-data bits
+            subprocess.check_call(['diff', '--ignore-matching-lines', '^--',
+                                   self.TEST_RESTORE_FILE,
+                                   self.TEST_DUMP_FILE])
         finally:
             self.drop_database_user()
             self.drop_database()
