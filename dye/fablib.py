@@ -795,8 +795,7 @@ def clean_db(revision=None):
     _tasks("clean_db")
 
 
-def get_remote_dump(filename=None, local_filename=None, rsync=True,
-                    ignored_tables=None):
+def get_remote_dump(filename=None, local_filename=None, rsync=True):
     """ do a remote database dump and copy it to the local filesystem """
     # future enhancement, do a mysqldump --skip-extended-insert (one insert
     # per line) and then do rsync rather than get() - less data transferred on
@@ -817,39 +816,24 @@ def get_remote_dump(filename=None, local_filename=None, rsync=True,
         if not _local_is_file_writable(local_filename):
             raise Exception(
                 'Cannot write to local dump file you specified: %s' % local_filename)
-
-    dump_options = []
-
     if rsync:
-        dump_options.append('for_rsync=true')
-
-    if ignored_tables is not None:
-        dump_options.append('ignored_tables=({0})'.format(
-            ','.join(ignored_tables)))
-
-    dump_command = 'dump_db:{0}{1}'.format(filename,
-                                           ''.join(map(',{0}'.format,
-                                                       dump_options)))
-
-    _tasks(dump_command)
-
-    if rsync:
+        _tasks('dump_db:' + filename + ',for_rsync=true')
         local("rsync -vz -e 'ssh -p %s' %s@%s:%s %s" % (
             env.port, env.user, env.host, filename, local_filename))
     else:
+        _tasks('dump_db:' + filename)
         get(filename, local_path=local_filename)
     sudo_or_run('rm ' + filename)
     return local_filename, delete_after
 
 
 def get_remote_dump_and_load(filename=None, local_filename=None,
-                             keep_dump=True, rsync=True, ignored_tables=None):
+                             keep_dump=True, rsync=True):
     """ do a remote database dump, copy it to the local filesystem and then
     load it into the local database """
     require('local_tasks_bin', provided_by=env.valid_envs)
     local_filename, delete_after = get_remote_dump(
-        filename=filename, local_filename=local_filename, rsync=rsync,
-        ignored_tables=ignored_tables)
+        filename=filename, local_filename=local_filename, rsync=rsync)
     local(env.local_tasks_bin + ' restore_db:' + local_filename)
     if delete_after or not keep_dump:
         local('rm ' + local_filename)
