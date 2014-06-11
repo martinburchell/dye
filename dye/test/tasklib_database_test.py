@@ -395,37 +395,42 @@ class TestDatabaseCreateFunctions(MysqlMixin, unittest.TestCase):
             self.drop_database_user()
             self.drop_database()
 
+    def compare_dumps(self):
+        # do a diff but ignore comments that may contain date stamps
+        # may also need to add '--ignore-matching-lines', '^/\*',
+        # to allow for non-data bits
+        subprocess.check_call(['diff', '--ignore-matching-lines', '^--',
+                               self.TEST_RESTORE_FILE, self.TEST_DUMP_FILE])
+
     def test_dump_db_generates_dump_similar_to_what_was_loaded(self):
         try:
             self.db.ensure_user_and_db_exist()
             self.db.restore_db(self.TEST_RESTORE_FILE)
             self.db.dump_db(self.TEST_DUMP_FILE)
-            # do a diff but ignore comments that may contain date stamps
-            # may also need to add '--ignore-matching-lines', '^/\*',
-            # to allow for non-data bits
-            subprocess.check_call(['diff', '--ignore-matching-lines', '^--',
-                                   self.TEST_RESTORE_FILE, self.TEST_DUMP_FILE])
+            self.compare_dumps()
+
         finally:
             self.drop_database_user()
             self.drop_database()
             os.remove(self.TEST_DUMP_FILE)
 
-    def test_dump_db_excludes_table(self):
+    def test_dump_db_can_be_given_extra_options(self):
         try:
             self.db.ensure_user_and_db_exist()
             self.db.restore_db(self.TEST_RESTORE_FILE)
             self.create_named_table('excluded_table_1')
             self.create_named_table('excluded_table_2')
-            self.db.dump_db(self.TEST_DUMP_FILE, ignored_tables=(
-                '{0}.excluded_table_1'.format(self.TEST_DB),
-                '{0}.excluded_table_2'.format(self.TEST_DB),
-            ))
-            # do a diff but ignore comments that may contain date stamps
-            # may also need to add '--ignore-matching-lines', '^/\*',
-            # to allow for non-data bits
-            subprocess.check_call(['diff', '--ignore-matching-lines', '^--',
-                                   self.TEST_RESTORE_FILE,
-                                   self.TEST_DUMP_FILE])
+
+            options = '--ignore-table={0}.{1} --ignore-table={2}.{3}'.format(
+                self.TEST_DB,
+                'excluded_table_1',
+                self.TEST_DB,
+                'excluded_table_2'
+            )
+
+            self.db.dump_db(dump_filename=self.TEST_DUMP_FILE, options=options)
+            self.compare_dumps()
+
         finally:
             self.drop_database_user()
             self.drop_database()

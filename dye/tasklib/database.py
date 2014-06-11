@@ -32,7 +32,8 @@ class DBManager(object):
 
     # these four are only required for fablib deploy, which is why I
     # haven't implemented them for sqlite
-    def dump_db(self, dump_filename='db_dump.sql', for_rsync=False):
+    def dump_db(self, dump_filename='db_dump.sql', for_rsync=False,
+                options=None):
         raise NotImplementedError()
 
     def restore_db(self, dump_filename):
@@ -285,7 +286,7 @@ class MySQLManager(DBManager):
         self.exec_as_root('DROP DATABASE IF EXISTS %s' % self.name)
 
     def dump_db(self, dump_filename='db_dump.sql', for_rsync=False,
-                ignored_tables=None):
+                options=None):
         """Dump the database in the current working directory"""
 
         dump_cmd = ['mysqldump'] + self.create_cmdline_args()
@@ -294,11 +295,10 @@ class MySQLManager(DBManager):
         if for_rsync:
             dump_cmd.append('--skip-extended-insert')
 
-        if ignored_tables is None:
-            ignored_tables = []
-
-        for table in ignored_tables:
-            dump_cmd.append('--ignore-table={0}'.format(table))
+        if options is not None:
+            # TODO: This isn't going to handle escaped or quoted spaces
+            # it would be better if we could pass arrays to tasklib
+            dump_cmd.extend(options.split(' '))
 
         with open(dump_filename, 'w') as dump_file:
             if env['verbose']:

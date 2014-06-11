@@ -181,9 +181,10 @@ def create_test_db(drop_after_create=True, database='default'):
     env['test_db'].create_db_if_not_exists(drop_after_create=drop_after_create)
 
 
-def dump_db(dump_filename='db_dump.sql', for_rsync=False, database='default'):
+def dump_db(dump_filename='db_dump.sql', for_rsync=False, options=None,
+            database='default'):
     _create_db_objects(database=database)
-    env['db'].dump_db(dump_filename, for_rsync)
+    env['db'].dump_db(dump_filename, for_rsync, options)
 
 
 def restore_db(dump_filename='db_dump.sql', database='default'):
